@@ -96,8 +96,8 @@ final class TrackerViewModel: ObservableObject {
         isActive = true
 
         let center = NotificationCenter.default
-        center.publisher(for: .AVCaptureDeviceWasConnected)
-            .merge(with: center.publisher(for: .AVCaptureDeviceWasDisconnected))
+        center.publisher(for: AVCaptureDevice.wasConnectedNotification)
+            .merge(with: center.publisher(for: AVCaptureDevice.wasDisconnectedNotification))
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in self?.refreshCameras() }
             .store(in: &cancellables)
