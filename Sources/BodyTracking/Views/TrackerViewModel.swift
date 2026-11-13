@@ -51,6 +51,7 @@ final class TrackerViewModel: ObservableObject {
         didSet { if oldValue != cameraEnabled { cameraEnabled ? restartCamera() : stopCamera() } }
     }
     @Published var topic: String = "pose"
+    @Published var outputFormat: OutputFormat = .mediaPipe
     @Published var mirrorPreview = true
 
     // Derived state.
@@ -220,7 +221,7 @@ final class TrackerViewModel: ObservableObject {
         guard let socket, socket.state == .connected, let settings else { return }
         let topic = topic.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !topic.isEmpty else { return }
-        let message = PublishMessage(clientId: settings.resolvedClientId(), topic: topic, poses: poses)
+        let message = PublishMessage(clientId: settings.resolvedClientId(), topic: topic, poses: poses, format: outputFormat)
         guard let text = MessageEncoder.string(message) else { return }
         socket.send(text)
         live.publishedCount += 1

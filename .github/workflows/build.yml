@@ -23,9 +23,11 @@ jobs:
         run: |
           curl -fsSL -o bus.jpg https://github.com/ultralytics/assets/releases/download/v0.0.0/bus.jpg
           BIN=build/BodyTracking.app/Contents/MacOS/BodyTracking
-          "$BIN" --detect bus.jpg --model yolo26n-pose > yolo26.json
-          "$BIN" --detect bus.jpg --model https://github.com/ultralytics/yolo-ios-app/releases/download/v8.3.0/yolo11n-pose.mlpackage.zip > yolo11.json
+          "$BIN" --detect bus.jpg --format yolo --model yolo26n-pose > yolo26.json
+          "$BIN" --detect bus.jpg --model yolo26n-pose > mediapipe.json
+          "$BIN" --detect bus.jpg --model https://github.com/ultralytics/yolo-ios-app/releases/download/v8.3.0/yolo11n-pose.mlpackage.zip --format yolo > yolo11.json
           python3 scripts/check-detection.py yolo26.json yolo11.json
+          python3 scripts/check-mediapipe.py yolo26.json mediapipe.json
 
       - uses: actions/upload-artifact@v4
         with:

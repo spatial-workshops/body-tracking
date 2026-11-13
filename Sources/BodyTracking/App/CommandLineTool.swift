@@ -3,7 +3,7 @@ import Foundation
 
 /// A headless mode for checking a model without a camera or a server:
 ///
-///     BodyTracking.app/Contents/MacOS/BodyTracking --detect photo.jpg [--model <id | path | https URL>] [--confidence 0.35]
+///     BodyTracking.app/Contents/MacOS/BodyTracking --detect photo.jpg [--model <id | path | https URL>] [--confidence 0.35] [--format mediapipe|yolo]
 ///
 /// Prints the `pubsub.publish` message the app would send for that image.
 enum CommandLineTool {
@@ -11,6 +11,7 @@ enum CommandLineTool {
         var image: URL
         var model = ModelCatalog.defaultModelID
         var confidence: Float = 0.35
+        var format = OutputFormat.mediaPipe
 
         init?(arguments: [String]) {
             guard let flag = arguments.firstIndex(of: "--detect"), flag + 1 < arguments.count else { return nil }
@@ -21,6 +22,10 @@ enum CommandLineTool {
             if let index = arguments.firstIndex(of: "--confidence"), index + 1 < arguments.count,
                let value = Float(arguments[index + 1]) {
                 confidence = value
+            }
+            if let index = arguments.firstIndex(of: "--format"), index + 1 < arguments.count,
+               let value = OutputFormat(rawValue: arguments[index + 1].lowercased()) {
+                format = value
             }
         }
     }
@@ -33,7 +38,7 @@ enum CommandLineTool {
                 throw CocoaError(.fileReadCorruptFile, userInfo: [NSFilePathErrorKey: options.image.path])
             }
             let poses = try detector.detect(image: image, confidenceThreshold: options.confidence)
-            let message = PublishMessage(clientId: "command-line", topic: "command-line", poses: poses)
+            let message = PublishMessage(clientId: "command-line", topic: "command-line", poses: poses, format: options.format)
             print(MessageEncoder.string(message, pretty: true) ?? "{}")
             return 0
         } catch {

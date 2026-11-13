@@ -59,7 +59,8 @@ Build options are environment variables:
 2. **Pick a camera and resolution** in the window's side panel.
 3. **Pick a model.** The first launch downloads YOLO26n Pose (about 3 MB). Choosing a model that
    isn't installed downloads and compiles it. **Manage Models…** (⇧⌘M) lists, deletes and imports models.
-4. **Set the detection rate** (1–60 fps, default 15) and the window's **topic**.
+4. **Set the detection rate** (1–60 fps, default 15), the window's **topic** and the output
+   **format** (MediaPipe by default, or YOLO).
 5. **Connect.** Set the server URL and client ID in **Settings** (⌘,) and press **Connect**, either
    there or in the bar at the bottom of any window.
 
@@ -97,33 +98,71 @@ with nobody in view (`data` is then `[]`). Nothing is sent while the topic is em
   "clientType": "pose-detector",
   "payload": {
     "topic": "<window topic>",
-    "data": [
-      {
-        "id": 0,
-        "confidence": 0.9312,
-        "box": { "x": 0.2811, "y": 0.1042, "width": 0.3120, "height": 0.8514 },
-        "keypoints": [
-          { "name": "nose", "x": 0.4512, "y": 0.1873, "confidence": 0.9876 },
-          { "name": "left_eye", "x": 0.4633, "y": 0.1701, "confidence": 0.9811 }
-        ]
-      }
-    ]
+    "data": []
   }
 }
 ```
 
-- `data` has one entry per detected person, ordered by descending confidence.
+The **Format** picker in each window chooses the layout of `data`. In both formats there is one
+entry per detected person, ordered by descending confidence, and coordinates are normalized to the
+camera frame: `(0, 0)` is the top-left corner and `(1, 1)` the bottom-right. "Left" and "right" are
+the person's own. The "Mirror preview" option only affects the display, never the data.
+
+#### MediaPipe format (default)
+
+`data` matches the `landmarks` field of a MediaPipe Pose Landmarker result: one array of 33
+landmarks per person, in MediaPipe's index order.
+
+```json
+"data": [
+  [
+    { "x": 0.4512, "y": 0.1873, "z": 0, "visibility": 0.9876 },
+    { "x": 0.4633, "y": 0.1701, "z": 0, "visibility": 0 }
+  ]
+]
+```
+
+The YOLO model detects 17 body points, so the translation works like this:
+
+| MediaPipe landmarks | Source | `visibility` |
+| --- | --- | --- |
+| 0 nose, 2 / 5 eyes, 7 / 8 ears, 11–16 shoulders, elbows, wrists, 23–28 hips, knees, ankles | The matching YOLO keypoint | The keypoint's confidence |
+| 1, 3, 4, 6 inner and outer eye corners | Position of the same-side eye | 0 |
+| 9, 10 mouth | Position of the nose | 0 |
+| 17–22 pinky, index, thumb | Position of the same-side wrist | 0 |
+| 29–32 heel, foot index | Position of the same-side ankle | 0 |
+
+- The 16 landmarks YOLO cannot detect are placeholders: they keep the array at 33 entries so
+  MediaPipe indices work, and their `visibility` of 0 marks them as not detected.
+- `z` is always 0, because YOLO pose has no depth estimate.
+- MediaPipe's `worldLandmarks` (metric 3D) and segmentation masks have no YOLO equivalent and are
+  not sent. The person's bounding box and overall confidence are not part of this format.
+
+#### YOLO format
+
+```json
+"data": [
+  {
+    "id": 0,
+    "confidence": 0.9312,
+    "box": { "x": 0.2811, "y": 0.1042, "width": 0.3120, "height": 0.8514 },
+    "keypoints": [
+      { "name": "nose", "x": 0.4512, "y": 0.1873, "confidence": 0.9876 },
+      { "name": "left_eye", "x": 0.4633, "y": 0.1701, "confidence": 0.9811 }
+    ]
+  }
+]
+```
+
 - `id` is the person's index within that frame. It is **not** a stable identity across frames.
-- All coordinates are normalized to the camera frame: `(0, 0)` is the top-left corner and `(1, 1)`
-  the bottom-right. Multiply by the frame width and height for pixels. The "Mirror preview" option
-  only affects the display, never the data.
 - `keypoints` always holds the 17 COCO keypoints in this order: `nose`, `left_eye`, `right_eye`,
   `left_ear`, `right_ear`, `left_shoulder`, `right_shoulder`, `left_elbow`, `right_elbow`,
   `left_wrist`, `right_wrist`, `left_hip`, `right_hip`, `left_knee`, `right_knee`, `left_ankle`,
-  `right_ankle`. "Left" and "right" are the person's own left and right.
+  `right_ankle`.
 - Keypoints that are occluded or out of frame are still listed, with a low `confidence`. Filter on
   it (the preview draws keypoints at 0.5 and above).
-- "Min. confidence" in the window sets the threshold for reporting a person at all.
+
+In both formats, "Min. confidence" in the window sets the threshold for reporting a person at all.
 
 ## Models
 
@@ -207,7 +246,7 @@ build/BodyTracking.app/Contents/MacOS/BodyTracking --detect photo.jpg --model yo
 ```
 
 `--model` takes a catalog ID, a path to a Core ML model, or an `https` URL of a zipped one.
-`--confidence` sets the threshold (default 0.35).
+`--confidence` sets the threshold (default 0.35). `--format` is `mediapipe` (default) or `yolo`.
 
 ## Project layout
 

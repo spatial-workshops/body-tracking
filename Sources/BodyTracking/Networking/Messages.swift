@@ -21,7 +21,7 @@ struct RegisterMessage: Encodable {
 struct PublishMessage: Encodable {
     struct Payload: Encodable {
         let topic: String
-        let data: [Pose]
+        let data: PoseData
     }
 
     let operation = "pubsub.publish"
@@ -29,9 +29,9 @@ struct PublishMessage: Encodable {
     let clientType = poseClientType
     let payload: Payload
 
-    init(clientId: String, topic: String, poses: [Pose]) {
+    init(clientId: String, topic: String, poses: [Pose], format: OutputFormat) {
         self.clientId = clientId
-        payload = Payload(topic: topic, data: poses)
+        payload = Payload(topic: topic, data: PoseData(poses, format: format))
     }
 }
 

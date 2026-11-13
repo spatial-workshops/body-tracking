@@ -11,6 +11,7 @@ struct TrackerView: View {
 
     // Per-window options, restored when the window is.
     @SceneStorage("tracker.topic") private var storedTopic = "pose"
+    @SceneStorage("tracker.format") private var storedFormat = OutputFormat.mediaPipe.rawValue
     @SceneStorage("tracker.camera") private var storedCamera = ""
     @SceneStorage("tracker.resolution") private var storedResolution = ""
     @SceneStorage("tracker.fps") private var storedFPS = 15.0
@@ -36,6 +37,7 @@ struct TrackerView: View {
         }
         .onDisappear { model.shutdown() }
         .onChange(of: model.topic) { _, value in storedTopic = value }
+        .onChange(of: model.outputFormat) { _, value in storedFormat = value.rawValue }
         .onChange(of: model.selectedCameraID) { _, value in storedCamera = value }
         .onChange(of: model.selectedResolution) { _, value in storedResolution = value?.id ?? "" }
         .onChange(of: model.targetFPS) { _, value in storedFPS = value }
@@ -46,6 +48,7 @@ struct TrackerView: View {
 
     private func restoreOptions() {
         model.topic = storedTopic
+        model.outputFormat = OutputFormat(rawValue: storedFormat) ?? .mediaPipe
         model.targetFPS = min(max(storedFPS, 1), 60)
         model.confidence = min(max(storedConfidence, 0.05), 0.95)
         model.mirrorPreview = storedMirror
@@ -141,6 +144,11 @@ struct TrackerView: View {
 
             Section("Publishing") {
                 TextField("Topic", text: $model.topic, prompt: Text("pubsub topic"))
+                Picker("Format", selection: $model.outputFormat) {
+                    ForEach(OutputFormat.allCases) { format in
+                        Text(format.label).tag(format)
+                    }
+                }
                 if model.topic.trimmingCharacters(in: .whitespaces).isEmpty {
                     Label("Enter a topic to publish poses.", systemImage: "exclamationmark.triangle")
                         .font(.caption)
