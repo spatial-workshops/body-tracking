@@ -2,6 +2,8 @@ import Foundation
 
 /// How a window formats `payload.data`.
 enum OutputFormat: String, CaseIterable, Identifiable {
+    /// A flat list of hands derived from the MediaPipe layout, in canvas pixels.
+    case hands = "mediapipe-modified"
     /// MediaPipe Pose Landmarker layout: 33 landmarks per person.
     case mediaPipe = "mediapipe"
     /// The app's native layout: 17 named COCO keypoints plus a bounding box per person.
@@ -11,6 +13,7 @@ enum OutputFormat: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
+        case .hands: return "MediaPipe (modified)"
         case .mediaPipe: return "MediaPipe (33 landmarks)"
         case .yolo: return "YOLO (17 keypoints)"
         }
@@ -21,9 +24,13 @@ enum OutputFormat: String, CaseIterable, Identifiable {
 enum PoseData: Encodable {
     case yolo([Pose])
     case mediaPipe([[MediaPipeLandmark]])
+    case hands([TrackedHand])
 
-    init(_ poses: [Pose], format: OutputFormat) {
+    /// `canvas` is only used by the hands format; `flipHorizontally` mirrors x in every format.
+    init(_ poses: [Pose], format: OutputFormat, canvas: CGSize, flipHorizontally: Bool) {
+        let poses = flipHorizontally ? poses.map { $0.flippedHorizontally() } : poses
         switch format {
+        case .hands: self = .hands(HandsConverter.hands(for: poses.map(MediaPipeConverter.landmarks), canvas: canvas))
         case .yolo: self = .yolo(poses)
         case .mediaPipe: self = .mediaPipe(poses.map(MediaPipeConverter.landmarks))
         }
@@ -34,6 +41,7 @@ enum PoseData: Encodable {
         switch self {
         case .yolo(let poses): try container.encode(poses)
         case .mediaPipe(let landmarks): try container.encode(landmarks)
+        case .hands(let hands): try container.encode(hands)
         }
     }
 }

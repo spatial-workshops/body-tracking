@@ -3,7 +3,7 @@ import Foundation
 
 /// A headless mode for checking a model without a camera or a server:
 ///
-///     BodyTracking.app/Contents/MacOS/BodyTracking --detect photo.jpg [--model <id | path | https URL>] [--confidence 0.35] [--format mediapipe|yolo]
+///     BodyTracking.app/Contents/MacOS/BodyTracking --detect photo.jpg [--model <id | path | https URL>] [--confidence 0.35] [--format mediapipe-modified|mediapipe|yolo] [--canvas 1920x1080] [--flip]
 ///
 /// Prints the `pubsub.publish` message the app would send for that image.
 enum CommandLineTool {
@@ -11,7 +11,9 @@ enum CommandLineTool {
         var image: URL
         var model = ModelCatalog.defaultModelID
         var confidence: Float = 0.35
-        var format = OutputFormat.mediaPipe
+        var format = OutputFormat.hands
+        var canvas = CGSize(width: 1920, height: 1080)
+        var flip = false
 
         init?(arguments: [String]) {
             guard let flag = arguments.firstIndex(of: "--detect"), flag + 1 < arguments.count else { return nil }
@@ -27,6 +29,11 @@ enum CommandLineTool {
                let value = OutputFormat(rawValue: arguments[index + 1].lowercased()) {
                 format = value
             }
+            if let index = arguments.firstIndex(of: "--canvas"), index + 1 < arguments.count,
+               let size = Resolution(id: arguments[index + 1].lowercased()) {
+                canvas = CGSize(width: size.width, height: size.height)
+            }
+            flip = arguments.contains("--flip")
         }
     }
 
@@ -38,7 +45,8 @@ enum CommandLineTool {
                 throw CocoaError(.fileReadCorruptFile, userInfo: [NSFilePathErrorKey: options.image.path])
             }
             let poses = try detector.detect(image: image, confidenceThreshold: options.confidence)
-            let message = PublishMessage(clientId: "command-line", topic: "command-line", poses: poses, format: options.format)
+            let data = PoseData(poses, format: options.format, canvas: options.canvas, flipHorizontally: options.flip)
+            let message = PublishMessage(clientId: "command-line", topic: "command-line", data: data)
             print(MessageEncoder.string(message, pretty: true) ?? "{}")
             return 0
         } catch {

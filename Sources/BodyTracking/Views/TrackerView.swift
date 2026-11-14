@@ -11,7 +11,10 @@ struct TrackerView: View {
 
     // Per-window options, restored when the window is.
     @SceneStorage("tracker.topic") private var storedTopic = "pose"
-    @SceneStorage("tracker.format") private var storedFormat = OutputFormat.mediaPipe.rawValue
+    @SceneStorage("tracker.format") private var storedFormat = OutputFormat.hands.rawValue
+    @SceneStorage("tracker.canvasWidth") private var storedCanvasWidth = 1920.0
+    @SceneStorage("tracker.canvasHeight") private var storedCanvasHeight = 1080.0
+    @SceneStorage("tracker.flip") private var storedFlip = false
     @SceneStorage("tracker.camera") private var storedCamera = ""
     @SceneStorage("tracker.resolution") private var storedResolution = ""
     @SceneStorage("tracker.fps") private var storedFPS = 15.0
@@ -38,6 +41,9 @@ struct TrackerView: View {
         .onDisappear { model.shutdown() }
         .onChange(of: model.topic) { _, value in storedTopic = value }
         .onChange(of: model.outputFormat) { _, value in storedFormat = value.rawValue }
+        .onChange(of: model.canvasWidth) { _, value in storedCanvasWidth = value }
+        .onChange(of: model.canvasHeight) { _, value in storedCanvasHeight = value }
+        .onChange(of: model.flipHorizontally) { _, value in storedFlip = value }
         .onChange(of: model.selectedCameraID) { _, value in storedCamera = value }
         .onChange(of: model.selectedResolution) { _, value in storedResolution = value?.id ?? "" }
         .onChange(of: model.targetFPS) { _, value in storedFPS = value }
@@ -48,7 +54,10 @@ struct TrackerView: View {
 
     private func restoreOptions() {
         model.topic = storedTopic
-        model.outputFormat = OutputFormat(rawValue: storedFormat) ?? .mediaPipe
+        model.outputFormat = OutputFormat(rawValue: storedFormat) ?? .hands
+        model.canvasWidth = max(storedCanvasWidth, 1)
+        model.canvasHeight = max(storedCanvasHeight, 1)
+        model.flipHorizontally = storedFlip
         model.targetFPS = min(max(storedFPS, 1), 60)
         model.confidence = min(max(storedConfidence, 0.05), 0.95)
         model.mirrorPreview = storedMirror
@@ -149,6 +158,22 @@ struct TrackerView: View {
                         Text(format.label).tag(format)
                     }
                 }
+                if model.outputFormat == .hands {
+                    LabeledContent("Canvas size") {
+                        HStack(spacing: 4) {
+                            TextField("Canvas width", value: $model.canvasWidth, format: .number.grouping(.never).precision(.fractionLength(0)))
+                                .labelsHidden()
+                                .multilineTextAlignment(.trailing)
+                                .frame(width: 56)
+                            Text("×").foregroundStyle(.secondary)
+                            TextField("Canvas height", value: $model.canvasHeight, format: .number.grouping(.never).precision(.fractionLength(0)))
+                                .labelsHidden()
+                                .multilineTextAlignment(.trailing)
+                                .frame(width: 56)
+                        }
+                    }
+                }
+                Toggle("Flip horizontally", isOn: $model.flipHorizontally)
                 if model.topic.trimmingCharacters(in: .whitespaces).isEmpty {
                     Label("Enter a topic to publish poses.", systemImage: "exclamationmark.triangle")
                         .font(.caption)

@@ -60,7 +60,7 @@ Build options are environment variables:
 3. **Pick a model.** The first launch downloads YOLO26n Pose (about 3 MB). Choosing a model that
    isn't installed downloads and compiles it. **Manage Models…** (⇧⌘M) lists, deletes and imports models.
 4. **Set the detection rate** (1–60 fps, default 15), the window's **topic** and the output
-   **format** (MediaPipe by default, or YOLO).
+   **format** (see [Published messages](#published-messages)).
 5. **Connect.** Set the server URL and client ID in **Settings** (⌘,) and press **Connect**, either
    there or in the bar at the bottom of any window.
 
@@ -103,12 +103,62 @@ with nobody in view (`data` is then `[]`). Nothing is sent while the topic is em
 }
 ```
 
-The **Format** picker in each window chooses the layout of `data`. In both formats there is one
-entry per detected person, ordered by descending confidence, and coordinates are normalized to the
-camera frame: `(0, 0)` is the top-left corner and `(1, 1)` the bottom-right. "Left" and "right" are
-the person's own. The "Mirror preview" option only affects the display, never the data.
+The **Format** picker in each window chooses the layout of `data`: **MediaPipe (modified)** (the
+default), **MediaPipe** or **YOLO**. In every format people are ordered by descending confidence,
+the origin is the top-left corner of the camera frame, and "left" and "right" are the person's own.
 
-#### MediaPipe format (default)
+**Flip horizontally** mirrors x in the published data, in every format (x becomes 1 − x; left and
+right labels stay with the person). It is off by default. "Mirror preview" is separate and only
+affects the display.
+
+#### MediaPipe (modified) format (default)
+
+`data` is a flat list of hands, two per detected person (left, then right), built from the
+MediaPipe-format landmarks below. Coordinates are in pixels of a canvas whose size you set in the
+window's **Canvas size** fields (default 1920 × 1080): each normalized coordinate is multiplied by
+the canvas width or height.
+
+```json
+"data": [
+  {
+    "side": "left",
+    "wrist": { "x": 1012.48, "y": 640.15 },
+    "index": { "x": 1040.11, "y": 688.4 },
+    "body": 0,
+    "elbow": { "x": 929.6, "y": 495.4, "score": 0.9712 },
+    "torso": { "x": 860.2, "y": 310.75, "score": 0.9903 },
+    "leftShoulder": { "x": 940.8, "y": 312.1, "score": 0.9931 },
+    "rightShoulder": { "x": 779.6, "y": 309.4, "score": 0.9903 },
+    "leftHip": { "x": 915.3, "y": 610.2, "score": 0.9854 },
+    "rightHip": { "x": 801.9, "y": 608.8, "score": 0.9849 },
+    "head": { "x": 858.7, "y": 201.6, "score": 0.9876 }
+  }
+]
+```
+
+| Field | Source |
+| --- | --- |
+| `side` | `"left"` or `"right"` |
+| `body` | Index of the person; both of a person's hands carry the same torso fields |
+| `wrist` | MediaPipe landmark 15 (left) or 16 (right) |
+| `index` | Estimated: on the ray from the elbow through the wrist, one third of the forearm's length beyond the wrist |
+| `elbow` | Landmark 13 or 14 |
+| `leftShoulder`, `rightShoulder` | Landmarks 11 and 12 |
+| `torso` | Midpoint of the shoulders; `score` is the lower of the two shoulder scores |
+| `leftHip`, `rightHip` | Landmarks 23 and 24 |
+| `head` | Landmark 0 (nose) |
+
+- `score` is the landmark's `visibility`. `wrist` and `index` have no score.
+- Every person yields exactly two hands, including when a wrist is occluded or out of frame; use the
+  `elbow` score to judge an arm's reliability.
+- `index` can fall outside the canvas when the arm points off-screen.
+- The one-third factor is `HandsConverter.indexFingerExtension` in
+  `Sources/BodyTracking/Pose/HandsFormat.swift`.
+
+#### MediaPipe format
+
+Coordinates are normalized to the camera frame: `(0, 0)` is the top-left corner and `(1, 1)` the
+bottom-right.
 
 `data` matches the `landmarks` field of a MediaPipe Pose Landmarker result: one array of 33
 landmarks per person, in MediaPipe's index order.
@@ -140,6 +190,8 @@ The YOLO model detects 17 body points, so the translation works like this:
 
 #### YOLO format
 
+Coordinates are normalized, as in the MediaPipe format.
+
 ```json
 "data": [
   {
@@ -162,7 +214,7 @@ The YOLO model detects 17 body points, so the translation works like this:
 - Keypoints that are occluded or out of frame are still listed, with a low `confidence`. Filter on
   it (the preview draws keypoints at 0.5 and above).
 
-In both formats, "Min. confidence" in the window sets the threshold for reporting a person at all.
+In every format, "Min. confidence" in the window sets the threshold for reporting a person at all.
 
 ## Models
 
@@ -246,7 +298,8 @@ build/BodyTracking.app/Contents/MacOS/BodyTracking --detect photo.jpg --model yo
 ```
 
 `--model` takes a catalog ID, a path to a Core ML model, or an `https` URL of a zipped one.
-`--confidence` sets the threshold (default 0.35). `--format` is `mediapipe` (default) or `yolo`.
+`--confidence` sets the threshold (default 0.35). `--format` is `mediapipe-modified` (default), `mediapipe` or `yolo`. `--canvas 1280x720` sets the
+canvas size for the modified format and `--flip` mirrors x.
 
 ## Project layout
 

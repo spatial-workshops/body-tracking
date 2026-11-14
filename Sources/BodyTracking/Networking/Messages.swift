@@ -29,9 +29,9 @@ struct PublishMessage: Encodable {
     let clientType = poseClientType
     let payload: Payload
 
-    init(clientId: String, topic: String, poses: [Pose], format: OutputFormat) {
+    init(clientId: String, topic: String, data: PoseData) {
         self.clientId = clientId
-        payload = Payload(topic: topic, data: PoseData(poses, format: format))
+        payload = Payload(topic: topic, data: data)
     }
 }
 
