@@ -15,6 +15,7 @@ struct TrackerView: View {
     @SceneStorage("tracker.canvasWidth") private var storedCanvasWidth = 1920.0
     @SceneStorage("tracker.canvasHeight") private var storedCanvasHeight = 1080.0
     @SceneStorage("tracker.flip") private var storedFlip = false
+    @SceneStorage("tracker.multiPoseTest") private var storedMultiPoseTest = false
     @SceneStorage("tracker.camera") private var storedCamera = ""
     @SceneStorage("tracker.resolution") private var storedResolution = ""
     @SceneStorage("tracker.fps") private var storedFPS = 15.0
@@ -44,6 +45,7 @@ struct TrackerView: View {
         .onChange(of: model.canvasWidth) { _, value in storedCanvasWidth = value }
         .onChange(of: model.canvasHeight) { _, value in storedCanvasHeight = value }
         .onChange(of: model.flipHorizontally) { _, value in storedFlip = value }
+        .onChange(of: model.multiPoseTest) { _, value in storedMultiPoseTest = value }
         .onChange(of: model.selectedCameraID) { _, value in storedCamera = value }
         .onChange(of: model.selectedResolution) { _, value in storedResolution = value?.id ?? "" }
         .onChange(of: model.targetFPS) { _, value in storedFPS = value }
@@ -58,6 +60,7 @@ struct TrackerView: View {
         model.canvasWidth = max(storedCanvasWidth, 1)
         model.canvasHeight = max(storedCanvasHeight, 1)
         model.flipHorizontally = storedFlip
+        model.multiPoseTest = storedMultiPoseTest
         model.targetFPS = min(max(storedFPS, 1), 60)
         model.confidence = min(max(storedConfidence, 0.05), 0.95)
         model.mirrorPreview = storedMirror
@@ -174,6 +177,12 @@ struct TrackerView: View {
                     }
                 }
                 Toggle("Flip horizontally", isOn: $model.flipHorizontally)
+                Toggle("Multi-pose test mode", isOn: $model.multiPoseTest)
+                if model.multiPoseTest {
+                    Label("A single detected person is duplicated across the frame.", systemImage: "person.3")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
                 if model.topic.trimmingCharacters(in: .whitespaces).isEmpty {
                     Label("Enter a topic to publish poses.", systemImage: "exclamationmark.triangle")
                         .font(.caption)

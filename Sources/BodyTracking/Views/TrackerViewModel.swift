@@ -57,6 +57,8 @@ final class TrackerViewModel: ObservableObject {
     @Published var canvasHeight: Double = 1080
     /// Mirrors x in the published data (not just the preview).
     @Published var flipHorizontally = false
+    /// Testing aid: a single detected person is published as a row of copies. See `MultiPoseTest`.
+    @Published var multiPoseTest = false
     @Published var mirrorPreview = true
 
     // Derived state.
@@ -212,13 +214,14 @@ final class TrackerViewModel: ObservableObject {
 
     private func handle(_ result: DetectionResult) {
         guard isActive, isRunning else { return }
-        live.poses = result.poses
+        let poses = multiPoseTest ? MultiPoseTest.expand(result.poses) : result.poses
+        live.poses = poses
         live.frameSize = result.frameSize
         live.fps = result.fps
         live.inferenceMs = result.inferenceMs
         live.detectionError = result.error
         if result.error == nil {
-            publish(result.poses)
+            publish(poses)
         }
     }
 

@@ -111,6 +111,13 @@ the origin is the top-left corner of the camera frame, and "left" and "right" ar
 right labels stay with the person). It is off by default. "Mirror preview" is separate and only
 affects the display.
 
+**Multi-pose test mode** is a testing aid for multi-person receivers. While it is on and exactly
+one person is detected, that pose is published together with copies of it shifted left and right
+by whole multiples of its bounding-box width, as many as fit entirely inside the frame (20 at
+most). The row is ordered left to right, the detected person stays where they are, and the preview
+draws the copies too. With zero or several people detected, the output is unchanged. It is off by
+default and applies to every format.
+
 #### MediaPipe (modified) format (default)
 
 `data` is a flat list of hands, two per detected person (left, then right), built from the
@@ -299,7 +306,7 @@ build/BodyTracking.app/Contents/MacOS/BodyTracking --detect photo.jpg --model yo
 
 `--model` takes a catalog ID, a path to a Core ML model, or an `https` URL of a zipped one.
 `--confidence` sets the threshold (default 0.35). `--format` is `mediapipe-modified` (default), `mediapipe` or `yolo`. `--canvas 1280x720` sets the
-canvas size for the modified format and `--flip` mirrors x.
+canvas size for the modified format and `--flip` mirrors x. `--multi-pose` applies multi-pose test mode.
 
 ## Project layout
 
