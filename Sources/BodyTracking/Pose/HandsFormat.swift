@@ -90,7 +90,7 @@ enum HandsConverter {
 extension Pose {
     /// The same pose as seen in a mirror: x becomes 1 − x. Left and right labels are unchanged.
     func flippedHorizontally() -> Pose {
-        func flip(_ x: Double) -> Double { ((1 - x) * 10_000).rounded() / 10_000 }
+        func flip(_ x: Double) -> Double { ((1 - x) * 1_000_000).rounded() / 1_000_000 }
         return Pose(
             id: id,
             confidence: confidence,

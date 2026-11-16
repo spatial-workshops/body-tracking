@@ -15,6 +15,9 @@ struct TrackerView: View {
     @SceneStorage("tracker.canvasWidth") private var storedCanvasWidth = 1920.0
     @SceneStorage("tracker.canvasHeight") private var storedCanvasHeight = 1080.0
     @SceneStorage("tracker.flip") private var storedFlip = false
+    @SceneStorage("tracker.scale") private var storedScale = 1.0
+    @SceneStorage("tracker.offsetX") private var storedOffsetX = 0.0
+    @SceneStorage("tracker.offsetY") private var storedOffsetY = 0.0
     @SceneStorage("tracker.multiPoseTest") private var storedMultiPoseTest = false
     @SceneStorage("tracker.camera") private var storedCamera = ""
     @SceneStorage("tracker.resolution") private var storedResolution = ""
@@ -45,6 +48,9 @@ struct TrackerView: View {
         .onChange(of: model.canvasWidth) { _, value in storedCanvasWidth = value }
         .onChange(of: model.canvasHeight) { _, value in storedCanvasHeight = value }
         .onChange(of: model.flipHorizontally) { _, value in storedFlip = value }
+        .onChange(of: model.bodyScale) { _, value in storedScale = value }
+        .onChange(of: model.offsetX) { _, value in storedOffsetX = value }
+        .onChange(of: model.offsetY) { _, value in storedOffsetY = value }
         .onChange(of: model.multiPoseTest) { _, value in storedMultiPoseTest = value }
         .onChange(of: model.selectedCameraID) { _, value in storedCamera = value }
         .onChange(of: model.selectedResolution) { _, value in storedResolution = value?.id ?? "" }
@@ -60,6 +66,9 @@ struct TrackerView: View {
         model.canvasWidth = max(storedCanvasWidth, 1)
         model.canvasHeight = max(storedCanvasHeight, 1)
         model.flipHorizontally = storedFlip
+        model.bodyScale = storedScale > 0 ? storedScale : 1
+        model.offsetX = storedOffsetX
+        model.offsetY = storedOffsetY
         model.multiPoseTest = storedMultiPoseTest
         model.targetFPS = min(max(storedFPS, 1), 60)
         model.confidence = min(max(storedConfidence, 0.05), 0.95)
@@ -161,7 +170,7 @@ struct TrackerView: View {
                         Text(format.label).tag(format)
                     }
                 }
-                if model.outputFormat == .hands {
+                do {
                     LabeledContent("Canvas size") {
                         HStack(spacing: 4) {
                             TextField("Canvas width", value: $model.canvasWidth, format: .number.grouping(.never).precision(.fractionLength(0)))
@@ -174,6 +183,27 @@ struct TrackerView: View {
                                 .multilineTextAlignment(.trailing)
                                 .frame(width: 56)
                         }
+                    }
+                }
+                LabeledContent("Body scale") {
+                    TextField("Body scale", value: $model.bodyScale, format: .number.grouping(.never).precision(.fractionLength(0...3)))
+                        .labelsHidden()
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 56)
+                        .onSubmit { if model.bodyScale < PoseTransform.minimumScale { model.bodyScale = 1 } }
+                }
+                LabeledContent("Offset (px)") {
+                    HStack(spacing: 4) {
+                        Text("x").foregroundStyle(.secondary)
+                        TextField("Offset x", value: $model.offsetX, format: .number.grouping(.never).precision(.fractionLength(0...2)))
+                            .labelsHidden()
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 56)
+                        Text("y").foregroundStyle(.secondary)
+                        TextField("Offset y", value: $model.offsetY, format: .number.grouping(.never).precision(.fractionLength(0...2)))
+                            .labelsHidden()
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 56)
                     }
                 }
                 Toggle("Flip horizontally", isOn: $model.flipHorizontally)

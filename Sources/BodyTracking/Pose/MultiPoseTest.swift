@@ -31,5 +31,5 @@ enum MultiPoseTest {
         }
     }
 
-    private static func round4(_ v: Double) -> Double { (v * 10_000).rounded() / 10_000 }
+    private static func round4(_ v: Double) -> Double { (v * 1_000_000).rounded() / 1_000_000 }
 }

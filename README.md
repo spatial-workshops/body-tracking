@@ -111,6 +111,21 @@ the origin is the top-left corner of the camera frame, and "left" and "right" ar
 right labels stay with the person). It is off by default. "Mirror preview" is separate and only
 affects the display.
 
+Each window can also adjust the bodies before publishing. Only the adjusted values are published,
+and the preview overlay draws them too, so with a scale other than 1 the skeleton no longer sits
+exactly on the person in the video.
+
+- **Body scale** resizes each body about its chest (the midpoint between its shoulders): `0.5`
+  halves it, `2` doubles it. The default is `1`.
+- **Offset (px)** then moves every body by x and y, in pixels of the canvas set in **Canvas size**
+  (default 1920 × 1080). Positive x is right, positive y is down, and negative values are allowed.
+  The defaults are `0`. In the MediaPipe and YOLO formats, whose coordinates are normalized, the
+  offset is divided by the canvas width or height.
+
+The order is: scale → multi-pose test copies → flip → offset. The offset is applied last, so it is
+never scaled and a positive x always moves bodies to the right. Adjusted coordinates are not
+clamped and can fall outside the frame.
+
 **Multi-pose test mode** is a testing aid for multi-person receivers. While it is on and exactly
 one person is detected, that pose is published together with copies of it shifted left and right
 by whole multiples of its bounding-box width, as many as fit entirely inside the frame (20 at
@@ -307,6 +322,7 @@ build/BodyTracking.app/Contents/MacOS/BodyTracking --detect photo.jpg --model yo
 `--model` takes a catalog ID, a path to a Core ML model, or an `https` URL of a zipped one.
 `--confidence` sets the threshold (default 0.35). `--format` is `mediapipe-modified` (default), `mediapipe` or `yolo`. `--canvas 1280x720` sets the
 canvas size for the modified format and `--flip` mirrors x. `--multi-pose` applies multi-pose test mode.
+`--scale 0.5` and `--offset 100,-50` set the body scale and the pixel offset.
 
 ## Project layout
 

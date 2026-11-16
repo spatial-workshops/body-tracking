@@ -26,9 +26,8 @@ enum PoseData: Encodable {
     case mediaPipe([[MediaPipeLandmark]])
     case hands([TrackedHand])
 
-    /// `canvas` is only used by the hands format; `flipHorizontally` mirrors x in every format.
-    init(_ poses: [Pose], format: OutputFormat, canvas: CGSize, flipHorizontally: Bool) {
-        let poses = flipHorizontally ? poses.map { $0.flippedHorizontally() } : poses
+    /// `canvas` is the size the hands format scales normalized coordinates to.
+    init(_ poses: [Pose], format: OutputFormat, canvas: CGSize) {
         switch format {
         case .hands: self = .hands(HandsConverter.hands(for: poses.map(MediaPipeConverter.landmarks), canvas: canvas))
         case .yolo: self = .yolo(poses)
