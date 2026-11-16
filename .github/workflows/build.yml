@@ -28,8 +28,15 @@ jobs:
           "$BIN" --detect bus.jpg --model yolo26n-pose --canvas 1280x720 > hands.json
           "$BIN" --detect bus.jpg --model yolo26n-pose --canvas 1280x720 --flip > hands-flipped.json
           "$BIN" --detect bus.jpg --model https://github.com/ultralytics/yolo-ios-app/releases/download/v8.3.0/yolo11n-pose.mlpackage.zip --format yolo > yolo11.json
+          "$BIN" --detect bus.jpg --format yolo --model yolo26n-pose --confidence 0.88 > single.json
+          "$BIN" --detect bus.jpg --format yolo --model yolo26n-pose --confidence 0.88 --multi-pose > multi.json
+          "$BIN" --detect bus.jpg --format yolo --model yolo26n-pose --multi-pose > multi-unchanged.json
+          "$BIN" --detect bus.jpg --format yolo --model yolo26n-pose --canvas 1280x720 --scale 0.5 --offset 100,-50 > transformed.json
+          "$BIN" --detect bus.jpg --model yolo26n-pose --canvas 1280x720 --scale 0.5 --offset 100,-50 > transformed-hands.json
           python3 scripts/check-detection.py yolo26.json yolo11.json
           python3 scripts/check-mediapipe.py yolo26.json mediapipe.json
+          python3 scripts/check-multi-pose.py single.json multi.json yolo26.json multi-unchanged.json
+          python3 scripts/check-transform.py yolo26.json transformed.json transformed-hands.json 1280 720 0.5 100 -50
           python3 scripts/check-hands.py mediapipe.json hands.json hands-flipped.json 1280 720
 
       - uses: actions/upload-artifact@v4

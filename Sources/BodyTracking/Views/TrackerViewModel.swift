@@ -52,11 +52,18 @@ final class TrackerViewModel: ObservableObject {
     }
     @Published var topic: String = "pose"
     @Published var outputFormat: OutputFormat = .hands
-    /// Size of the receiving canvas, in pixels; the hands format is expressed in these units.
+    /// Scales every body about its chest before publishing; 1 is unchanged.
+    @Published var bodyScale: Double = 1
+    /// Moves every body by this many canvas pixels, after scaling.
+    @Published var offsetX: Double = 0
+    @Published var offsetY: Double = 0
+    /// Size of the receiving canvas, in pixels: the unit of the offsets and of the hands format.
     @Published var canvasWidth: Double = 1920
     @Published var canvasHeight: Double = 1080
     /// Mirrors x in the published data (not just the preview).
     @Published var flipHorizontally = false
+    /// Testing aid: a single detected person is published as a row of copies. See `MultiPoseTest`.
+    @Published var multiPoseTest = false
     @Published var mirrorPreview = true
 
     // Derived state.
@@ -212,26 +219,36 @@ final class TrackerViewModel: ObservableObject {
 
     private func handle(_ result: DetectionResult) {
         guard isActive, isRunning else { return }
-        live.poses = result.poses
+        var transform = PoseTransform(
+            scale: bodyScale,
+            offsetX: offsetX,
+            offsetY: offsetY,
+            canvas: canvasSize,
+            flipHorizontally: flipHorizontally,
+            multiPoseTest: multiPoseTest
+        )
+        let poses = transform.apply(to: result.poses)
+        // The overlay shows what is published, minus the flip: the preview has its own mirror option.
+        transform.flipHorizontally = false
+        live.poses = flipHorizontally ? transform.apply(to: result.poses) : poses
         live.frameSize = result.frameSize
         live.fps = result.fps
         live.inferenceMs = result.inferenceMs
         live.detectionError = result.error
         if result.error == nil {
-            publish(result.poses)
+            publish(poses)
         }
+    }
+
+    private var canvasSize: CGSize {
+        CGSize(width: max(canvasWidth, 1), height: max(canvasHeight, 1))
     }
 
     private func publish(_ poses: [Pose]) {
         guard let socket, socket.state == .connected, let settings else { return }
         let topic = topic.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !topic.isEmpty else { return }
-        let data = PoseData(
-            poses,
-            format: outputFormat,
-            canvas: CGSize(width: max(canvasWidth, 1), height: max(canvasHeight, 1)),
-            flipHorizontally: flipHorizontally
-        )
+        let data = PoseData(poses, format: outputFormat, canvas: canvasSize)
         let message = PublishMessage(clientId: settings.resolvedClientId(), topic: topic, data: data)
         guard let text = MessageEncoder.string(message) else { return }
         socket.send(text)

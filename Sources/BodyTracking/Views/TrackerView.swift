@@ -15,6 +15,10 @@ struct TrackerView: View {
     @SceneStorage("tracker.canvasWidth") private var storedCanvasWidth = 1920.0
     @SceneStorage("tracker.canvasHeight") private var storedCanvasHeight = 1080.0
     @SceneStorage("tracker.flip") private var storedFlip = false
+    @SceneStorage("tracker.scale") private var storedScale = 1.0
+    @SceneStorage("tracker.offsetX") private var storedOffsetX = 0.0
+    @SceneStorage("tracker.offsetY") private var storedOffsetY = 0.0
+    @SceneStorage("tracker.multiPoseTest") private var storedMultiPoseTest = false
     @SceneStorage("tracker.camera") private var storedCamera = ""
     @SceneStorage("tracker.resolution") private var storedResolution = ""
     @SceneStorage("tracker.fps") private var storedFPS = 15.0
@@ -23,6 +27,10 @@ struct TrackerView: View {
     @SceneStorage("tracker.mirror") private var storedMirror = true
 
     var body: some View {
+        persistingPublishingOptions(persistingCaptureOptions(content))
+    }
+
+    private var content: some View {
         HStack(spacing: 0) {
             videoPane
             Divider()
@@ -39,17 +47,31 @@ struct TrackerView: View {
             await model.activate(socket: socket, settings: settings, store: store)
         }
         .onDisappear { model.shutdown() }
-        .onChange(of: model.topic) { _, value in storedTopic = value }
-        .onChange(of: model.outputFormat) { _, value in storedFormat = value.rawValue }
-        .onChange(of: model.canvasWidth) { _, value in storedCanvasWidth = value }
-        .onChange(of: model.canvasHeight) { _, value in storedCanvasHeight = value }
-        .onChange(of: model.flipHorizontally) { _, value in storedFlip = value }
-        .onChange(of: model.selectedCameraID) { _, value in storedCamera = value }
-        .onChange(of: model.selectedResolution) { _, value in storedResolution = value?.id ?? "" }
-        .onChange(of: model.targetFPS) { _, value in storedFPS = value }
-        .onChange(of: model.confidence) { _, value in storedConfidence = value }
-        .onChange(of: model.selectedModelID) { _, value in storedModel = value }
-        .onChange(of: model.mirrorPreview) { _, value in storedMirror = value }
+    }
+
+    // Saving options is split into two short modifier chains to keep the type checker fast.
+
+    private func persistingCaptureOptions(_ view: some View) -> some View {
+        view
+            .onChange(of: model.selectedCameraID) { _, value in storedCamera = value }
+            .onChange(of: model.selectedResolution) { _, value in storedResolution = value?.id ?? "" }
+            .onChange(of: model.targetFPS) { _, value in storedFPS = value }
+            .onChange(of: model.confidence) { _, value in storedConfidence = value }
+            .onChange(of: model.selectedModelID) { _, value in storedModel = value }
+            .onChange(of: model.mirrorPreview) { _, value in storedMirror = value }
+    }
+
+    private func persistingPublishingOptions(_ view: some View) -> some View {
+        view
+            .onChange(of: model.topic) { _, value in storedTopic = value }
+            .onChange(of: model.outputFormat) { _, value in storedFormat = value.rawValue }
+            .onChange(of: model.canvasWidth) { _, value in storedCanvasWidth = value }
+            .onChange(of: model.canvasHeight) { _, value in storedCanvasHeight = value }
+            .onChange(of: model.flipHorizontally) { _, value in storedFlip = value }
+            .onChange(of: model.bodyScale) { _, value in storedScale = value }
+            .onChange(of: model.offsetX) { _, value in storedOffsetX = value }
+            .onChange(of: model.offsetY) { _, value in storedOffsetY = value }
+            .onChange(of: model.multiPoseTest) { _, value in storedMultiPoseTest = value }
     }
 
     private func restoreOptions() {
@@ -58,6 +80,10 @@ struct TrackerView: View {
         model.canvasWidth = max(storedCanvasWidth, 1)
         model.canvasHeight = max(storedCanvasHeight, 1)
         model.flipHorizontally = storedFlip
+        model.bodyScale = storedScale > 0 ? storedScale : 1
+        model.offsetX = storedOffsetX
+        model.offsetY = storedOffsetY
+        model.multiPoseTest = storedMultiPoseTest
         model.targetFPS = min(max(storedFPS, 1), 60)
         model.confidence = min(max(storedConfidence, 0.05), 0.95)
         model.mirrorPreview = storedMirror
@@ -158,22 +184,14 @@ struct TrackerView: View {
                         Text(format.label).tag(format)
                     }
                 }
-                if model.outputFormat == .hands {
-                    LabeledContent("Canvas size") {
-                        HStack(spacing: 4) {
-                            TextField("Canvas width", value: $model.canvasWidth, format: .number.grouping(.never).precision(.fractionLength(0)))
-                                .labelsHidden()
-                                .multilineTextAlignment(.trailing)
-                                .frame(width: 56)
-                            Text("×").foregroundStyle(.secondary)
-                            TextField("Canvas height", value: $model.canvasHeight, format: .number.grouping(.never).precision(.fractionLength(0)))
-                                .labelsHidden()
-                                .multilineTextAlignment(.trailing)
-                                .frame(width: 56)
-                        }
-                    }
-                }
+                transformFields
                 Toggle("Flip horizontally", isOn: $model.flipHorizontally)
+                Toggle("Multi-pose test mode", isOn: $model.multiPoseTest)
+                if model.multiPoseTest {
+                    Label("A single detected person is duplicated across the frame.", systemImage: "person.3")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
                 if model.topic.trimmingCharacters(in: .whitespaces).isEmpty {
                     Label("Enter a topic to publish poses.", systemImage: "exclamationmark.triangle")
                         .font(.caption)
@@ -186,6 +204,45 @@ struct TrackerView: View {
             }
         }
         .formStyle(.grouped)
+    }
+
+    /// Canvas size, body scale and pixel offset.
+    @ViewBuilder
+    private var transformFields: some View {
+        LabeledContent("Canvas size") {
+            HStack(spacing: 4) {
+                TextField("Canvas width", value: $model.canvasWidth, format: .number.grouping(.never).precision(.fractionLength(0)))
+                    .labelsHidden()
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 56)
+                Text("×").foregroundStyle(.secondary)
+                TextField("Canvas height", value: $model.canvasHeight, format: .number.grouping(.never).precision(.fractionLength(0)))
+                    .labelsHidden()
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 56)
+            }
+        }
+        LabeledContent("Body scale") {
+            TextField("Body scale", value: $model.bodyScale, format: .number.grouping(.never).precision(.fractionLength(0...3)))
+                .labelsHidden()
+                .multilineTextAlignment(.trailing)
+                .frame(width: 56)
+                .onSubmit { if model.bodyScale < PoseTransform.minimumScale { model.bodyScale = 1 } }
+        }
+        LabeledContent("Offset (px)") {
+            HStack(spacing: 4) {
+                Text("x").foregroundStyle(.secondary)
+                TextField("Offset x", value: $model.offsetX, format: .number.grouping(.never).precision(.fractionLength(0...2)))
+                    .labelsHidden()
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 56)
+                Text("y").foregroundStyle(.secondary)
+                TextField("Offset y", value: $model.offsetY, format: .number.grouping(.never).precision(.fractionLength(0...2)))
+                    .labelsHidden()
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 56)
+            }
+        }
     }
 
     private func modelLabel(_ info: ModelInfo) -> String {
