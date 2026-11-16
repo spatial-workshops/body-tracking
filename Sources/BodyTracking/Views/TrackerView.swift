@@ -27,6 +27,10 @@ struct TrackerView: View {
     @SceneStorage("tracker.mirror") private var storedMirror = true
 
     var body: some View {
+        persistingPublishingOptions(persistingCaptureOptions(content))
+    }
+
+    private var content: some View {
         HStack(spacing: 0) {
             videoPane
             Divider()
@@ -43,21 +47,31 @@ struct TrackerView: View {
             await model.activate(socket: socket, settings: settings, store: store)
         }
         .onDisappear { model.shutdown() }
-        .onChange(of: model.topic) { _, value in storedTopic = value }
-        .onChange(of: model.outputFormat) { _, value in storedFormat = value.rawValue }
-        .onChange(of: model.canvasWidth) { _, value in storedCanvasWidth = value }
-        .onChange(of: model.canvasHeight) { _, value in storedCanvasHeight = value }
-        .onChange(of: model.flipHorizontally) { _, value in storedFlip = value }
-        .onChange(of: model.bodyScale) { _, value in storedScale = value }
-        .onChange(of: model.offsetX) { _, value in storedOffsetX = value }
-        .onChange(of: model.offsetY) { _, value in storedOffsetY = value }
-        .onChange(of: model.multiPoseTest) { _, value in storedMultiPoseTest = value }
-        .onChange(of: model.selectedCameraID) { _, value in storedCamera = value }
-        .onChange(of: model.selectedResolution) { _, value in storedResolution = value?.id ?? "" }
-        .onChange(of: model.targetFPS) { _, value in storedFPS = value }
-        .onChange(of: model.confidence) { _, value in storedConfidence = value }
-        .onChange(of: model.selectedModelID) { _, value in storedModel = value }
-        .onChange(of: model.mirrorPreview) { _, value in storedMirror = value }
+    }
+
+    // Saving options is split into two short modifier chains to keep the type checker fast.
+
+    private func persistingCaptureOptions(_ view: some View) -> some View {
+        view
+            .onChange(of: model.selectedCameraID) { _, value in storedCamera = value }
+            .onChange(of: model.selectedResolution) { _, value in storedResolution = value?.id ?? "" }
+            .onChange(of: model.targetFPS) { _, value in storedFPS = value }
+            .onChange(of: model.confidence) { _, value in storedConfidence = value }
+            .onChange(of: model.selectedModelID) { _, value in storedModel = value }
+            .onChange(of: model.mirrorPreview) { _, value in storedMirror = value }
+    }
+
+    private func persistingPublishingOptions(_ view: some View) -> some View {
+        view
+            .onChange(of: model.topic) { _, value in storedTopic = value }
+            .onChange(of: model.outputFormat) { _, value in storedFormat = value.rawValue }
+            .onChange(of: model.canvasWidth) { _, value in storedCanvasWidth = value }
+            .onChange(of: model.canvasHeight) { _, value in storedCanvasHeight = value }
+            .onChange(of: model.flipHorizontally) { _, value in storedFlip = value }
+            .onChange(of: model.bodyScale) { _, value in storedScale = value }
+            .onChange(of: model.offsetX) { _, value in storedOffsetX = value }
+            .onChange(of: model.offsetY) { _, value in storedOffsetY = value }
+            .onChange(of: model.multiPoseTest) { _, value in storedMultiPoseTest = value }
     }
 
     private func restoreOptions() {
@@ -170,42 +184,7 @@ struct TrackerView: View {
                         Text(format.label).tag(format)
                     }
                 }
-                do {
-                    LabeledContent("Canvas size") {
-                        HStack(spacing: 4) {
-                            TextField("Canvas width", value: $model.canvasWidth, format: .number.grouping(.never).precision(.fractionLength(0)))
-                                .labelsHidden()
-                                .multilineTextAlignment(.trailing)
-                                .frame(width: 56)
-                            Text("×").foregroundStyle(.secondary)
-                            TextField("Canvas height", value: $model.canvasHeight, format: .number.grouping(.never).precision(.fractionLength(0)))
-                                .labelsHidden()
-                                .multilineTextAlignment(.trailing)
-                                .frame(width: 56)
-                        }
-                    }
-                }
-                LabeledContent("Body scale") {
-                    TextField("Body scale", value: $model.bodyScale, format: .number.grouping(.never).precision(.fractionLength(0...3)))
-                        .labelsHidden()
-                        .multilineTextAlignment(.trailing)
-                        .frame(width: 56)
-                        .onSubmit { if model.bodyScale < PoseTransform.minimumScale { model.bodyScale = 1 } }
-                }
-                LabeledContent("Offset (px)") {
-                    HStack(spacing: 4) {
-                        Text("x").foregroundStyle(.secondary)
-                        TextField("Offset x", value: $model.offsetX, format: .number.grouping(.never).precision(.fractionLength(0...2)))
-                            .labelsHidden()
-                            .multilineTextAlignment(.trailing)
-                            .frame(width: 56)
-                        Text("y").foregroundStyle(.secondary)
-                        TextField("Offset y", value: $model.offsetY, format: .number.grouping(.never).precision(.fractionLength(0...2)))
-                            .labelsHidden()
-                            .multilineTextAlignment(.trailing)
-                            .frame(width: 56)
-                    }
-                }
+                transformFields
                 Toggle("Flip horizontally", isOn: $model.flipHorizontally)
                 Toggle("Multi-pose test mode", isOn: $model.multiPoseTest)
                 if model.multiPoseTest {
@@ -225,6 +204,45 @@ struct TrackerView: View {
             }
         }
         .formStyle(.grouped)
+    }
+
+    /// Canvas size, body scale and pixel offset.
+    @ViewBuilder
+    private var transformFields: some View {
+        LabeledContent("Canvas size") {
+            HStack(spacing: 4) {
+                TextField("Canvas width", value: $model.canvasWidth, format: .number.grouping(.never).precision(.fractionLength(0)))
+                    .labelsHidden()
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 56)
+                Text("×").foregroundStyle(.secondary)
+                TextField("Canvas height", value: $model.canvasHeight, format: .number.grouping(.never).precision(.fractionLength(0)))
+                    .labelsHidden()
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 56)
+            }
+        }
+        LabeledContent("Body scale") {
+            TextField("Body scale", value: $model.bodyScale, format: .number.grouping(.never).precision(.fractionLength(0...3)))
+                .labelsHidden()
+                .multilineTextAlignment(.trailing)
+                .frame(width: 56)
+                .onSubmit { if model.bodyScale < PoseTransform.minimumScale { model.bodyScale = 1 } }
+        }
+        LabeledContent("Offset (px)") {
+            HStack(spacing: 4) {
+                Text("x").foregroundStyle(.secondary)
+                TextField("Offset x", value: $model.offsetX, format: .number.grouping(.never).precision(.fractionLength(0...2)))
+                    .labelsHidden()
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 56)
+                Text("y").foregroundStyle(.secondary)
+                TextField("Offset y", value: $model.offsetY, format: .number.grouping(.never).precision(.fractionLength(0...2)))
+                    .labelsHidden()
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 56)
+            }
+        }
     }
 
     private func modelLabel(_ info: ModelInfo) -> String {
