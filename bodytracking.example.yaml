@@ -1,0 +1,35 @@
+# Body Tracking startup configuration.
+#
+# Copy this file to ~/bodytracking.yaml and edit it. The app reads it once, at launch.
+# Every setting is optional: leave one out to keep the app's default.
+
+# App-wide settings. These replace the values in the app's Settings window at every launch.
+server:
+  url: ws://localhost:4000
+  connectOnStartup: true
+  # clientId: my-pose-detector    # defaults to a random UUID generated on first launch
+
+# One tracker window is opened per entry. When this list is present, the app opens exactly
+# these windows instead of restoring the ones from the previous session.
+windows:
+  - topic: bouncy.3.hands
+    camera: FaceTime HD Camera     # camera name, part of the name, or its unique ID
+    resolution: 1920x1080
+    detectionRate: 15              # frames per second, 1-60
+    model: yolo26n-pose            # yolo26n-pose, yolo26s-pose, yolo26m-pose, yolo26l-pose, yolo26x-pose
+    minConfidence: 0.35            # 0.05-0.95
+    format: mediapipe-modified     # mediapipe-modified, mediapipe, or yolo
+    canvas: 1920x1080              # receiving canvas, in pixels
+    scale: 1.0                     # body scale about the chest
+    offsetX: 0                     # canvas pixels, applied after scaling
+    offsetY: 0
+    flipHorizontally: false
+    multiPoseTest: false
+    mirrorPreview: true
+    cameraOn: true
+
+  - topic: stage.left
+    camera: Logitech               # matches any camera whose name contains "Logitech"
+    resolution: 1280x720
+    detectionRate: 30
+    format: yolo

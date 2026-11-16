@@ -25,9 +25,9 @@ struct Resolution: Identifiable, Hashable {
         self.init(width: parts[0], height: parts[1])
     }
 
-    /// 1280×720 if offered, otherwise the largest mode up to 1080p, otherwise the smallest.
+    /// 1920×1080 if offered, otherwise the largest mode up to 1080p, otherwise the smallest.
     static func preferred(in resolutions: [Resolution]) -> Resolution? {
-        if let hd = resolutions.first(where: { $0.width == 1280 && $0.height == 720 }) { return hd }
+        if let fullHD = resolutions.first(where: { $0.width == 1920 && $0.height == 1080 }) { return fullHD }
         return resolutions.last(where: { $0.width <= 1920 && $0.height <= 1080 }) ?? resolutions.first
     }
 }

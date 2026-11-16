@@ -11,6 +11,8 @@ detected body landmarks to a WebSocket pubsub server.
 ## Requirements
 
 - macOS 15 or later
+- An internet connection for the first build, which downloads the
+  [Yams](https://github.com/jpsim/Yams) YAML parser
 - Xcode 16 or later installed (only its command-line toolchain is used; there is no Xcode project).
   The Command Line Tools on their own are enough for a native build:
 
@@ -56,7 +58,8 @@ Build options are environment variables:
 
 1. **Open a window.** The first window opens at launch; **File › New Window** (⌘N) opens more.
    Each window is an independent tracker.
-2. **Pick a camera and resolution** in the window's side panel.
+2. **Pick a camera and resolution** in the window's side panel. The resolution defaults to
+   1920 × 1080 when the camera offers it.
 3. **Pick a model.** The first launch downloads YOLO26n Pose (about 3 MB). Choosing a model that
    isn't installed downloads and compiles it. **Manage Models…** (⇧⌘M) lists, deletes and imports models.
 4. **Set the detection rate** (1–60 fps, default 15), the window's **topic** and the output
@@ -66,6 +69,83 @@ Build options are environment variables:
 
 Per-window options are restored with the window. The server URL, client ID and
 "connect at launch" are app-wide.
+
+### Startup configuration file
+
+The app reads `~/bodytracking.yaml` at launch, if it exists. It sets the server options and
+describes the windows to open, so a whole setup starts without any clicking.
+[`bodytracking.example.yaml`](bodytracking.example.yaml) lists every setting:
+
+```bash
+cp bodytracking.example.yaml ~/bodytracking.yaml
+```
+
+```yaml
+server:
+  url: ws://localhost:4000
+  connectOnStartup: true
+
+windows:
+  - topic: bouncy.3.hands
+    camera: FaceTime HD Camera
+    resolution: 1920x1080
+  - topic: stage.left
+    camera: Logitech
+    detectionRate: 30
+    format: yolo
+```
+
+Every setting is optional; one that is left out keeps the app's default.
+
+| `server` setting | Meaning |
+| --- | --- |
+| `url` | WebSocket server URL |
+| `connectOnStartup` | `true` connects as soon as the app launches |
+| `clientId` | Client ID; leave out to keep the generated UUID |
+
+| `windows` setting | Meaning | Default |
+| --- | --- | --- |
+| `topic` | Pubsub topic | `pose` |
+| `camera` | Camera name as shown in the Camera menu, part of the name, or the camera's unique ID | System default camera |
+| `resolution` | `WIDTHxHEIGHT` | `1920x1080` if offered |
+| `cameraOn` | Start the camera | `true` |
+| `mirrorPreview` | Mirror the preview (display only) | `true` |
+| `model` | Model ID, such as `yolo26s-pose`, or the name of an imported model | `yolo26n-pose` |
+| `detectionRate` | Detections per second, 1–60 | `15` |
+| `minConfidence` | Threshold for reporting a person, 0.05–0.95 | `0.35` |
+| `format` | `mediapipe-modified`, `mediapipe` or `yolo` | `mediapipe-modified` |
+| `canvas` | Receiving canvas, `WIDTHxHEIGHT` in pixels | `1920x1080` |
+| `scale` | Body scale | `1.0` |
+| `offsetX`, `offsetY` | Offset in canvas pixels | `0` |
+| `flipHorizontally` | Mirror x in the published data | `false` |
+| `multiPoseTest` | Multi-pose test mode | `false` |
+
+How the file is applied:
+
+- **Server settings** replace the ones in the Settings window at every launch. You can still change
+  them in the app; the file wins again at the next launch.
+- **Windows:** one window opens per entry, in order. When the file lists windows, the app opens
+  exactly those and does not restore the windows of the previous session. Windows you open
+  afterwards with ⌘N start from the defaults. Without a `windows` list the app behaves as it does
+  with no file.
+- **Cameras** are matched by unique ID, then by exact name, then by part of the name, ignoring
+  case. If no camera matches, or the camera does not offer the requested resolution, the window
+  falls back to the default and says so at the top of its Camera section.
+- **The file is read only at launch** and the app never writes to it.
+- **Mistakes:** if the file cannot be parsed it is ignored and the first window shows the reason.
+  Settings with unknown names are ignored and listed the same way.
+
+To use a file somewhere else, pass `--config`:
+
+```bash
+open build/BodyTracking.app --args --config /path/to/setup.yaml
+```
+
+To validate a file without starting the app, which prints the settings as the app understood them:
+
+```bash
+build/BodyTracking.app/Contents/MacOS/BodyTracking --check-config --config ~/bodytracking.yaml
+```
 
 ### Connection behaviour
 

@@ -33,6 +33,8 @@ jobs:
           "$BIN" --detect bus.jpg --format yolo --model yolo26n-pose --multi-pose > multi-unchanged.json
           "$BIN" --detect bus.jpg --format yolo --model yolo26n-pose --canvas 1280x720 --scale 0.5 --offset 100,-50 > transformed.json
           "$BIN" --detect bus.jpg --model yolo26n-pose --canvas 1280x720 --scale 0.5 --offset 100,-50 > transformed-hands.json
+          "$BIN" --check-config --config bodytracking.example.yaml > config.json
+          python3 scripts/check-config.py config.json
           python3 scripts/check-detection.py yolo26.json yolo11.json
           python3 scripts/check-mediapipe.py yolo26.json mediapipe.json
           python3 scripts/check-multi-pose.py single.json multi.json yolo26.json multi-unchanged.json

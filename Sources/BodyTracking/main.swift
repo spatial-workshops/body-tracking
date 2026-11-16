@@ -1,8 +1,10 @@
 import Foundation
 
 // `BodyTracking --detect <image>` runs one detection from the terminal (see CommandLineTool);
-// otherwise the SwiftUI app starts.
-if let options = CommandLineTool.Options(arguments: CommandLine.arguments) {
+// `BodyTracking --check-config` validates bodytracking.yaml; otherwise the SwiftUI app starts.
+if CommandLine.arguments.contains("--check-config") {
+    exit(CommandLineTool.checkConfiguration(arguments: CommandLine.arguments))
+} else if let options = CommandLineTool.Options(arguments: CommandLine.arguments) {
     Task {
         exit(await CommandLineTool.run(options))
     }

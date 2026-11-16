@@ -80,6 +80,23 @@ enum CommandLineTool {
         }
     }
 
+    /// `--check-config [--config <path>]`: parses the configuration file, prints what the app
+    /// understood as JSON, and reports problems on standard error.
+    static func checkConfiguration(arguments: [String]) -> Int32 {
+        let url = StartupConfiguration.location(arguments: arguments)
+        do {
+            let (file, warnings) = try StartupConfiguration.load(url)
+            for warning in warnings {
+                FileHandle.standardError.write(Data("warning: \(warning)\n".utf8))
+            }
+            print(MessageEncoder.string(file, pretty: true) ?? "{}")
+            return 0
+        } catch {
+            FileHandle.standardError.write(Data("error: \(url.path): \(StartupConfiguration.describe(error))\n".utf8))
+            return 1
+        }
+    }
+
     private static func compiledModel(for model: String) async throws -> URL {
         if let info = ModelCatalog.builtIn.first(where: { $0.id == model }) {
             _ = info

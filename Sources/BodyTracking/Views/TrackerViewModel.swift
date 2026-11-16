@@ -72,6 +72,8 @@ final class TrackerViewModel: ObservableObject {
     @Published private(set) var isRunning = false
     @Published private(set) var cameraMessage: String?
     @Published private(set) var modelStatus: ModelStatus = .idle
+    /// Settings from bodytracking.yaml that could not be honoured for this window.
+    @Published private(set) var configNotes: [String] = []
 
     let live = LiveState()
     let camera = CameraController()
@@ -83,6 +85,9 @@ final class TrackerViewModel: ObservableObject {
     private var isActive = false
     private var hasCameraAccess = false
     private var isUpdatingResolution = false
+    /// Camera named in bodytracking.yaml, resolved once the camera list is known.
+    private var requestedCamera: String?
+    private var requestedResolution: Resolution?
     private var loadTask: Task<Void, Never>?
     private var startGeneration = 0
     private var cancellables: Set<AnyCancellable> = []
@@ -135,11 +140,78 @@ final class TrackerViewModel: ObservableObject {
         isRunning = false
     }
 
+    // MARK: - Configuration file
+
+    /// Applies one window entry of bodytracking.yaml. Call before `activate`.
+    func apply(_ config: WindowConfig, store: ModelStore) {
+        if let topic = config.topic { self.topic = topic }
+        if let value = config.format {
+            if let format = OutputFormat(rawValue: value.lowercased()) {
+                outputFormat = format
+            } else {
+                configNotes.append("Unknown format “\(value)”.")
+            }
+        }
+        if let value = config.canvas {
+            if let size = Resolution(id: value.lowercased()), size.width > 0, size.height > 0 {
+                canvasWidth = Double(size.width)
+                canvasHeight = Double(size.height)
+            } else {
+                configNotes.append("Canvas “\(value)” is not WIDTHxHEIGHT.")
+            }
+        }
+        if let scale = config.scale, scale >= PoseTransform.minimumScale { bodyScale = scale }
+        if let x = config.offsetX { offsetX = x }
+        if let y = config.offsetY { offsetY = y }
+        if let flip = config.flipHorizontally { flipHorizontally = flip }
+        if let multi = config.multiPoseTest { multiPoseTest = multi }
+        if let rate = config.detectionRate { targetFPS = min(max(rate.rounded(), 1), 60) }
+        if let confidence = config.minConfidence { self.confidence = min(max(confidence, 0.05), 0.95) }
+        if let mirror = config.mirrorPreview { mirrorPreview = mirror }
+        if let on = config.cameraOn { cameraEnabled = on }
+        if let value = config.model {
+            if store.info(for: value) != nil {
+                selectedModelID = value
+            } else {
+                configNotes.append("Model “\(value)” is not available; using \(selectedModelID).")
+            }
+        }
+        if let value = config.resolution {
+            if let resolution = Resolution(id: value.lowercased()) {
+                selectedResolution = resolution
+                requestedResolution = resolution
+            } else {
+                configNotes.append("Resolution “\(value)” is not WIDTHxHEIGHT.")
+            }
+        }
+        if let camera = config.camera?.trimmingCharacters(in: .whitespaces), !camera.isEmpty {
+            requestedCamera = camera
+        }
+    }
+
+    /// Matches a camera by unique ID, then exact name, then part of the name (case-insensitive).
+    static func camera(matching query: String, in cameras: [CameraDevice]) -> CameraDevice? {
+        cameras.first { $0.id == query }
+            ?? cameras.first { $0.name.caseInsensitiveCompare(query) == .orderedSame }
+            ?? cameras.first { $0.name.range(of: query, options: .caseInsensitive) != nil }
+    }
+
     // MARK: - Camera
 
     func refreshCameras() {
         guard hasCameraAccess else { return }
         cameras = CameraController.availableCameras()
+        if let query = requestedCamera {
+            requestedCamera = nil
+            if let match = Self.camera(matching: query, in: cameras) {
+                if match.id != selectedCameraID {
+                    selectedCameraID = match.id
+                    return
+                }
+            } else {
+                configNotes.append("Camera “\(query)” was not found; using the default camera.")
+            }
+        }
         if cameras.contains(where: { $0.id == selectedCameraID }) {
             if resolutions.isEmpty || !isRunning { cameraSelectionChanged() }
             return
@@ -159,6 +231,12 @@ final class TrackerViewModel: ObservableObject {
         guard isActive, hasCameraAccess else { return }
         resolutions = CameraController.resolutions(for: selectedCameraID)
         let keep = selectedResolution.flatMap { resolutions.contains($0) ? $0 : nil }
+        if let requested = requestedResolution {
+            requestedResolution = nil
+            if keep != requested, !resolutions.isEmpty {
+                configNotes.append("This camera does not offer \(requested.label); using its default resolution.")
+            }
+        }
         isUpdatingResolution = true
         selectedResolution = keep ?? Resolution.preferred(in: resolutions)
         isUpdatingResolution = false
