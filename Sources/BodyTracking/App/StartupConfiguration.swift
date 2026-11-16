@@ -50,7 +50,7 @@ struct WindowConfig: Codable, Equatable {
 /// as they open.
 @MainActor
 final class StartupConfiguration: ObservableObject {
-    static let defaultPath = "~/bodytracking.yaml"
+    nonisolated static let defaultPath = "~/bodytracking.yaml"
 
     /// The file that was looked for.
     let url: URL
@@ -107,7 +107,7 @@ final class StartupConfiguration: ObservableObject {
 
     // MARK: - Loading
 
-    static func location(arguments: [String]) -> URL {
+    nonisolated static func location(arguments: [String]) -> URL {
         var path = defaultPath
         if let flag = arguments.firstIndex(of: "--config"), flag + 1 < arguments.count {
             path = arguments[flag + 1]
@@ -116,7 +116,7 @@ final class StartupConfiguration: ObservableObject {
     }
 
     /// Parses the file. `warnings` lists keys the app does not know, which are otherwise ignored.
-    static func load(_ url: URL) throws -> (file: ConfigFile, warnings: [String]) {
+    nonisolated static func load(_ url: URL) throws -> (file: ConfigFile, warnings: [String]) {
         let text = try String(contentsOf: url, encoding: .utf8)
         guard let root = try Yams.load(yaml: text) else {
             return (ConfigFile(), [])  // empty file, or comments only
@@ -140,7 +140,7 @@ final class StartupConfiguration: ObservableObject {
         return (file, warnings)
     }
 
-    static func describe(_ error: Error) -> String {
+    nonisolated static func describe(_ error: Error) -> String {
         if let decoding = error as? DecodingError {
             switch decoding {
             case .typeMismatch(_, let context), .valueNotFound(_, let context),
