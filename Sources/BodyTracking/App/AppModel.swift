@@ -6,8 +6,15 @@ final class AppModel: ObservableObject {
     let settings = AppSettings()
     let socket = WebSocketClient()
     let models = ModelStore()
+    let startup = StartupConfiguration()
 
     init() {
+        // bodytracking.yaml, when present, overrides the stored server settings at every launch.
+        if let server = startup.file?.server {
+            if let url = server.url { settings.serverURL = url }
+            if let clientId = server.clientId, !clientId.isEmpty { settings.clientId = clientId }
+            if let connect = server.connectOnStartup { settings.connectOnLaunch = connect }
+        }
         if settings.connectOnLaunch {
             connect()
         }

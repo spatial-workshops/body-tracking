@@ -15,8 +15,11 @@ struct BodyTrackingApp: App {
                 .environmentObject(app.settings)
                 .environmentObject(app.socket)
                 .environmentObject(app.models)
+                .environmentObject(app.startup)
         }
         .defaultSize(width: 1100, height: 660)
+        // Windows listed in bodytracking.yaml replace the previous session's windows.
+        .restorationBehavior(app.startup.definesWindows ? .disabled : .automatic)
         .commands {
             CommandGroup(after: .newItem) {
                 ModelsWindowCommand()

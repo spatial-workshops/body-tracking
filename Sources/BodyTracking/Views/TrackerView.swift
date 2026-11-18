@@ -5,9 +5,11 @@ struct TrackerView: View {
     @EnvironmentObject private var settings: AppSettings
     @EnvironmentObject private var socket: WebSocketClient
     @EnvironmentObject private var store: ModelStore
+    @EnvironmentObject private var startup: StartupConfiguration
     @Environment(\.openWindow) private var openWindow
 
     @StateObject private var model = TrackerViewModel()
+    @State private var configProblems: String?
 
     // Per-window options, restored when the window is.
     @SceneStorage("tracker.topic") private var storedTopic = "pose"
@@ -44,9 +46,15 @@ struct TrackerView: View {
         .navigationTitle(model.topic.isEmpty ? "Body Tracking" : "Body Tracking — \(model.topic)")
         .task {
             restoreOptions()
+            applyStartupConfiguration()
             await model.activate(socket: socket, settings: settings, store: store)
         }
         .onDisappear { model.shutdown() }
+        .alert("bodytracking.yaml", isPresented: Binding(get: { configProblems != nil }, set: { if !$0 { configProblems = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(configProblems ?? "")
+        }
     }
 
     // Saving options is split into two short modifier chains to keep the type checker fast.
@@ -72,6 +80,20 @@ struct TrackerView: View {
             .onChange(of: model.offsetX) { _, value in storedOffsetX = value }
             .onChange(of: model.offsetY) { _, value in storedOffsetY = value }
             .onChange(of: model.multiPoseTest) { _, value in storedMultiPoseTest = value }
+    }
+
+    /// Takes this window's entry from bodytracking.yaml, if one is waiting. The first window
+    /// also opens the windows for the remaining entries and reports problems with the file.
+    private func applyStartupConfiguration() {
+        if let config = startup.claimWindow() {
+            model.apply(config, store: store)
+        }
+        for _ in 0..<startup.takeExtraWindowCount() {
+            openWindow(id: WindowID.tracker)
+        }
+        if let problems = startup.takeProblems() {
+            configProblems = problems
+        }
     }
 
     private func restoreOptions() {
@@ -127,6 +149,11 @@ struct TrackerView: View {
     private var optionsPane: some View {
         Form {
             Section("Camera") {
+                ForEach(model.configNotes, id: \.self) { note in
+                    Label(note, systemImage: "exclamationmark.triangle")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
                 Picker("Camera", selection: $model.selectedCameraID) {
                     if !model.cameras.contains(where: { $0.id == model.selectedCameraID }) {
                         Text(model.cameras.isEmpty ? "No camera" : "Select…").tag(model.selectedCameraID)
